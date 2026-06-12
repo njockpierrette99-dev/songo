@@ -1,0 +1,13 @@
+{
+  "name": "songo-distant",
+  "version": "1.0.0",
+  "description": "Jeu Songo — Version multijoueur distante (Node.js + Express)",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  }
+}
