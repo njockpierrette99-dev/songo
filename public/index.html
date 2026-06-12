@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Songo — Version Distante (Multijoueur)</title>
+  <style>
+    :root {
+      --bois-fonce:   #3B1F0A;
+      --bois-moyen:   #6B3A1F;
+      --bois-clair:   #A0622A;
+      --sable:        #E8C97A;
+      --sable-clair:  #F5E9C4;
+      --graine:       #2C1A00;
+      --graine-alt:   #8B5E3C;
+      --rouge-joueur: #C0392B;
+      --bleu-joueur:  #1A5276;
+      --vert:         #1E8449;
+      --texte-clair:  #FAF3E0;
+      --ombre:        rgba(0,0,0,0.45);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Georgia', serif;
+      background: radial-gradient(ellipse at center, #1a0a00 0%, #0d0500 100%);
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: flex-start; padding: 20px; color: var(--texte-clair);
+    }
+    header { text-align: center; margin-bottom: 18px; }
+    header h1 { font-size: clamp(1.6rem, 4vw, 2.6rem); letter-spacing: 0.18em; color: var(--sable); text-shadow: 0 0 20px var(--bois-clair); }
+    header p { font-size: 0.8rem; color: var(--graine-alt); letter-spacing: 0.1em; margin-top: 3px; }
+
+    /* ---- ÉCRAN LOBBY ---- */
+    #ecran-lobby {
+      background: linear-gradient(160deg, var(--bois-moyen), var(--bois-fonce));
+      border: 2px solid var(--bois-clair); border-radius: 18px;
+      padding: 36px 44px; max-width: 460px; width: 100%; text-align: center;
+    }
+    #ecran-lobby h2 { color: var(--sable); font-size: 1.3rem; margin-bottom: 20px; letter-spacing: 0.1em; }
+    .divider { display: flex; align-items: center; gap: 10px; margin: 22px 0; }
+    .divider-line { flex: 1; height: 1px; background: var(--bois-clair); }
+    .divider span { color: var(--graine-alt); font-size: 0.8rem; }
+    input[type="text"] {
+      width: 100%; padding: 10px 14px; border-radius: 8px;
+      border: 2px solid var(--bois-clair); background: var(--bois-fonce);
+      color: var(--sable-clair); font-family: 'Georgia', serif; font-size: 1rem;
+      margin-bottom: 10px; outline: none; letter-spacing: 0.08em;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color: var(--sable); }
+    input::placeholder { color: var(--graine-alt); }
+    .btn {
+      font-family: 'Georgia', serif; font-size: 0.95rem; padding: 11px 26px;
+      border-radius: 8px; border: 2px solid var(--bois-clair); cursor: pointer;
+      transition: all 0.25s; letter-spacing: 0.06em; width: 100%; margin-top: 4px;
+    }
+    .btn-primaire { background: var(--sable); color: var(--bois-fonce); border-color: var(--bois-fonce); }
+    .btn-primaire:hover { background: var(--sable-clair); }
+    .btn-secondaire { background: var(--bois-moyen); color: var(--sable-clair); }
+    .btn-secondaire:hover { background: var(--bois-clair); color: var(--bois-fonce); }
+    #code-partie-display {
+      background: rgba(0,0,0,0.4); border-radius: 10px; padding: 14px;
+      margin: 12px 0; border: 1px dashed var(--bois-clair);
+    }
+    #code-partie-display p { font-size: 0.8rem; color: var(--graine-alt); margin-bottom: 6px; }
+    #code-partie-display span { font-size: 2rem; font-weight: bold; color: var(--sable); letter-spacing: 0.25em; }
+    #attente-j2 { color: var(--graine-alt); font-size: 0.85rem; margin-top: 14px; animation: clignoter 1.2s infinite; }
+    @keyframes clignoter { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    #erreur-lobby { color: #E74C3C; font-size: 0.85rem; margin-top: 8px; min-height: 20px; }
+
+    /* ---- JEU ---- */
+    #ecran-jeu { display: none; width: 100%; max-width: 720px; flex-direction: column; align-items: center; }
+    #info-connexion {
+      display: flex; gap: 12px; margin-bottom: 12px; width: 100%;
+      justify-content: center; flex-wrap: wrap;
+    }
+    .badge {
+      background: rgba(0,0,0,0.4); border: 1px solid var(--bois-clair);
+      border-radius: 6px; padding: 5px 12px; font-size: 0.75rem; color: var(--graine-alt);
+    }
+    .badge span { color: var(--sable); font-weight: bold; }
+    #panneau-scores {
+      display: flex; justify-content: space-around; align-items: center;
+      width: 100%; margin-bottom: 14px; gap: 10px;
+    }
+    .carte-joueur {
+      flex: 1; background: linear-gradient(135deg, var(--bois-fonce), var(--bois-moyen));
+      border-radius: 12px; padding: 10px 14px; text-align: center;
+      border: 2px solid transparent; transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .carte-joueur.actif { border-color: var(--sable); box-shadow: 0 0 16px var(--sable); }
+    .carte-joueur.moi  { border-bottom: 3px solid var(--vert); }
+    .nom-joueur { font-size: 0.78rem; letter-spacing: 0.1em; color: var(--graine-alt); }
+    .score-joueur { font-size: 2rem; font-weight: bold; color: var(--sable); }
+    .label-score { font-size: 0.65rem; color: var(--graine-alt); }
+    #message-tour {
+      flex: 1.2; text-align: center; font-size: 0.9rem; color: var(--sable-clair);
+      background: rgba(0,0,0,0.4); border-radius: 10px; padding: 10px;
+      min-height: 58px; display: flex; align-items: center; justify-content: center; line-height: 1.4;
+    }
+    #plateau {
+      background: linear-gradient(160deg, var(--bois-moyen), var(--bois-fonce));
+      border-radius: 22px; padding: 20px 24px;
+      box-shadow: 0 10px 36px var(--ombre), inset 0 2px 6px rgba(255,255,255,0.07);
+      border: 3px solid var(--bois-clair); width: 100%; position: relative;
+    }
+    .rangee { display: flex; justify-content: space-between; gap: 7px; margin: 7px 0; }
+    .case {
+      flex: 1; aspect-ratio: 1;
+      background: radial-gradient(circle at 40% 35%, #4a2a10, #1a0800);
+      border-radius: 50%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      cursor: pointer; position: relative;
+      border: 2px solid var(--bois-clair);
+      transition: transform 0.25s, box-shadow 0.25s;
+      box-shadow: inset 0 4px 10px rgba(0,0,0,0.6); min-width: 56px; min-height: 56px;
+    }
+    .case:hover:not(.disabled):not(.vide) {
+      transform: scale(1.09); box-shadow: inset 0 2px 8px rgba(0,0,0,0.4), 0 0 14px var(--sable);
+    }
+    .case.disabled { cursor: not-allowed; opacity: 0.55; }
+    .case.vide .nb-graines { color: #333; }
+    .case.highlight-capture { animation: pulse-cap 0.65s ease-in-out; }
+    @keyframes pulse-cap {
+      0%   { box-shadow: inset 0 4px 10px rgba(0,0,0,0.6), 0 0 0 rgba(255,80,0,0); }
+      50%  { box-shadow: inset 0 4px 10px rgba(0,0,0,0.6), 0 0 26px rgba(255,80,0,0.9); }
+      100% { box-shadow: inset 0 4px 10px rgba(0,0,0,0.6), 0 0 0 rgba(255,80,0,0); }
+    }
+    .nb-graines { font-size: 1.2rem; font-weight: bold; color: var(--sable); line-height: 1; }
+    .graines-visuelles { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 88%; margin-top: 3px; }
+    .graine-dot { width: 6px; height: 6px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--graine-alt), var(--graine)); }
+    .case-index { position: absolute; top: 3px; left: 4px; font-size: 0.5rem; color: rgba(255,255,255,0.2); }
+    .label-camp { text-align: center; font-size: 0.7rem; letter-spacing: 0.14em; padding: 3px 0; color: var(--graine-alt); }
+    .label-camp.j2-label { color: #5D8BCC; }
+    .label-camp.j1-label { color: #C06060; }
+    #sep { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+    .ligne-sep { flex: 1; height: 2px; background: linear-gradient(90deg, transparent, var(--bois-clair), transparent); }
+    #zone-boutons { margin-top: 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    #btn-quitter { background: var(--bois-moyen); color: var(--sable-clair); border-color: var(--bois-clair); font-family:'Georgia',serif; font-size:0.88rem; padding:9px 22px; border-radius:8px; cursor:pointer; border:2px solid; }
+    #btn-quitter:hover { background: var(--bois-clair); color: var(--bois-fonce); }
+    #indicateur-polling { font-size: 0.7rem; color: var(--graine-alt); margin-top: 8px; }
+    #indicateur-polling.actif::before { content: '⟳ '; }
+
+    /* Modal fin */
+    #modal-fin { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:100; align-items:center; justify-content:center; }
+    #modal-fin.visible { display:flex; }
+    .modal-contenu { background:linear-gradient(160deg,var(--bois-moyen),var(--bois-fonce)); border:3px solid var(--sable); border-radius:20px; padding:36px 46px; text-align:center; max-width:400px; }
+    .modal-contenu h2 { font-size:1.8rem; color:var(--sable); margin-bottom:10px; }
+    .modal-contenu p { color:var(--sable-clair); font-size:0.95rem; margin-bottom:6px; line-height:1.5; }
+    .modal-contenu button { margin-top:18px; background:var(--sable); color:var(--bois-fonce); border:2px solid var(--bois-fonce); font-family:'Georgia',serif; font-size:0.95rem; padding:11px 28px; border-radius:8px; cursor:pointer; }
+    .modal-contenu button:hover { background:var(--sable-clair); }
+
+    @media(max-width:520px){
+      .case{min-width:38px;min-height:38px;} .nb-graines{font-size:0.95rem;} #plateau{padding:12px 10px;}
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⊙ SONGO ⊙</h1>
+  <p>Jeu traditionnel africain · Version distante (multijoueur)</p>
+</header>
+
+<!-- ==================== LOBBY ==================== -->
+<div id="ecran-lobby">
+  <h2>Rejoindre ou créer une partie</h2>
+
+  <button class="btn btn-primaire" id="btn-creer">Créer une nouvelle partie</button>
+
+  <div id="code-partie-display" style="display:none">
+    <p>Donnez ce code à votre adversaire :</p>
+    <span id="code-display">----</span>
+  </div>
+  <p id="attente-j2" style="display:none">En attente du joueur 2…</p>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <span>ou rejoindre</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <input type="text" id="input-code" placeholder="Entrez le code de partie (ex: A3F1)" maxlength="4" />
+  <button class="btn btn-secondaire" id="btn-rejoindre">Rejoindre cette partie</button>
+
+  <p id="erreur-lobby"></p>
+</div>
+
+<!-- ==================== JEU ==================== -->
+<div id="ecran-jeu">
+  <div id="info-connexion">
+    <div class="badge">Partie : <span id="badge-id">—</span></div>
+    <div class="badge">Vous êtes : <span id="badge-role">—</span></div>
+    <div class="badge">Graines sur plateau : <span id="badge-total">70</span></div>
+  </div>
+
+  <div id="panneau-scores">
+    <div class="carte-joueur" id="carte-j1">
+      <div class="nom-joueur">JOUEUR 1</div>
+      <div class="score-joueur" id="score-j1">0</div>
+      <div class="label-score">capturées</div>
+    </div>
+    <div id="message-tour">En attente…</div>
+    <div class="carte-joueur" id="carte-j2">
+      <div class="nom-joueur">JOUEUR 2</div>
+      <div class="score-joueur" id="score-j2">0</div>
+      <div class="label-score">capturées</div>
+    </div>
+  </div>
+
+  <div id="plateau">
+    <div class="label-camp j2-label">— Camp du Joueur 2 →</div>
+    <div class="rangee" id="rangee-j2"></div>
+    <div id="sep"><div class="ligne-sep"></div><span style="color:var(--sable);font-size:1.1rem;opacity:0.7">◆</span><div class="ligne-sep"></div></div>
+    <div class="rangee" id="rangee-j1"></div>
+    <div class="label-camp j1-label">← Camp du Joueur 1 —</div>
+  </div>
+
+  <div id="zone-boutons">
+    <button id="btn-quitter">✕ Quitter la partie</button>
+  </div>
+  <p id="indicateur-polling">Synchronisation active</p>
+</div>
+
+<!-- Modal fin -->
+<div id="modal-fin">
+  <div class="modal-contenu">
+    <h2 id="modal-titre">Partie terminée</h2>
+    <p id="modal-resultat"></p>
+    <p id="modal-scores"></p>
+    <button onclick="retourLobby()">Retour au lobby</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SONGO — VERSION DISTANTE (AJAX / Fetch API)
+   
+   Communication avec le backend REST (app.js / Node.js) :
+     POST /api/creer       → créer une partie
+     POST /api/rejoindre   → rejoindre une partie
+     GET  /api/etat/:id    → polling de l'état (toutes les 2s)
+     POST /api/coup        → jouer un coup
+   
+   Le frontend maintient un état local minimal et se synchronise
+   avec le serveur via polling régulier (setInterval).
+============================================================ */
+
+const API_BASE = 'http://localhost:3000/api';
+
+/* ---- État local du client ---- */
+let session = {
+  gameId:        null,
+  token:         null,
+  joueur:        null,   // 1 ou 2 (rôle local)
+  dernierEtat:   null,
+  intervalPolling: null,
+  enCoursDEnvoi: false
+};
+
+/* ============================================================
+   LOBBY — CRÉER UNE PARTIE
+============================================================ */
+document.getElementById('btn-creer').addEventListener('click', async () => {
+  setErreur('');
+  try {
+    const rep = await fetchAPI('POST', '/creer', {});
+    session.gameId = rep.gameId;
+    session.token  = rep.token;
+    session.joueur = 1;
+    
+    // Afficher le code
+    document.getElementById('code-display').textContent = rep.gameId;
+    document.getElementById('code-partie-display').style.display = 'block';
+    document.getElementById('attente-j2').style.display = 'block';
+    document.getElementById('btn-creer').disabled = true;
+    document.getElementById('btn-rejoindre').disabled = true;
+    
+    // Démarrer le polling d'attente
+    demarrerPollingAttente();
+  } catch (e) {
+    setErreur('Impossible de contacter le serveur. Vérifiez que app.js tourne sur le port 3000.');
+  }
+});
+
+/* ============================================================
+   LOBBY — REJOINDRE UNE PARTIE
+============================================================ */
+document.getElementById('btn-rejoindre').addEventListener('click', async () => {
+  const code = document.getElementById('input-code').value.trim().toUpperCase();
+  if (!code || code.length !== 4) { setErreur('Entrez un code de 4 caractères.'); return; }
+  setErreur('');
+  
+  try {
+    const rep = await fetchAPI('POST', '/rejoindre', { gameId: code });
+    session.gameId = code;
+    session.token  = rep.token;
+    session.joueur = 2;
+    
+    initialiserEcranJeu();
+    demarrerPolling();
+  } catch (e) {
+    setErreur(e.message || 'Code invalide ou partie introuvable.');
+  }
+});
+
+/* Polling en lobby pour détecter l'arrivée de J2 */
+function demarrerPollingAttente() {
+  const iv = setInterval(async () => {
+    try {
+      const etat = await fetchAPI('GET', `/etat/${session.gameId}`);
+      if (etat.joueur2Present) {
+        clearInterval(iv);
+        initialiserEcranJeu();
+        demarrerPolling();
+      }
+    } catch(e) { /* ignorer */ }
+  }, 2000);
+}
+
+/* ============================================================
+   INITIALISATION DE L'ÉCRAN DE JEU
+============================================================ */
+function initialiserEcranJeu() {
+  document.getElementById('ecran-lobby').style.display = 'none';
+  const ecranJeu = document.getElementById('ecran-jeu');
+  ecranJeu.style.display = 'flex';
+  
+  document.getElementById('badge-id').textContent   = session.gameId;
+  document.getElementById('badge-role').textContent = `Joueur ${session.joueur}`;
+  
+  // Marquer visuellement la carte "moi"
+  document.getElementById(`carte-j${session.joueur}`).classList.add('moi');
+  
+  construirePlateau();
+}
+
+/* ============================================================
+   PLATEAU — CONSTRUCTION DOM (identique à version locale)
+============================================================ */
+function construirePlateau() {
+  const rangeeJ2 = document.getElementById('rangee-j2');
+  const rangeeJ1 = document.getElementById('rangee-j1');
+  rangeeJ2.innerHTML = '';
+  rangeeJ1.innerHTML = '';
+  
+  [6,5,4,3,2,1,0].forEach(idx => rangeeJ2.appendChild(creerCase(idx)));
+  [7,8,9,10,11,12,13].forEach(idx => rangeeJ1.appendChild(creerCase(idx)));
+}
+
+function creerCase(idx) {
+  const div = document.createElement('div');
+  div.className = 'case disabled';
+  div.setAttribute('data-index', idx);
+  div.innerHTML = `
+    <span class="case-index">${idx}</span>
+    <span class="nb-graines">5</span>
+    <div class="graines-visuelles"></div>
+  `;
+  div.addEventListener('click', () => jouerCoup(idx));
+  return div;
+}
+
+/* ============================================================
+   POLLING — SYNCHRONISATION PÉRIODIQUE (toutes les 2 secondes)
+============================================================ */
+function demarrerPolling() {
+  if (session.intervalPolling) clearInterval(session.intervalPolling);
+  session.intervalPolling = setInterval(async () => {
+    await synchroniserEtat();
+  }, 2000);
+  // Premier appel immédiat
+  synchroniserEtat();
+}
+
+async function synchroniserEtat() {
+  try {
+    const etat = await fetchAPI('GET', `/etat/${session.gameId}`);
+    const indic = document.getElementById('indicateur-polling');
+    indic.textContent = `Synchronisé · ${new Date().toLocaleTimeString()}`;
+    indic.className = 'actif';
+    
+    if (etat.partieTerminee && (!session.dernierEtat || !session.dernierEtat.partieTerminee)) {
+      afficherFinDePartie(etat);
+    }
+    
+    session.dernierEtat = etat;
+    rendreInterface(etat);
+  } catch(e) {
+    document.getElementById('indicateur-polling').textContent = '⚠ Connexion perdue, nouvelle tentative…';
+  }
+}
+
+/* ============================================================
+   JOUER UN COUP — ENVOI AJAX (POST /api/coup)
+============================================================ */
+async function jouerCoup(caseIdx) {
+  if (!session.dernierEtat) return;
+  if (session.dernierEtat.partieTerminee) return;
+  if (session.enCoursDEnvoi) return;
+  
+  // Vérifier que c'est notre tour
+  if (session.dernierEtat.joueurActif !== session.joueur) {
+    afficherMessage("⏳ Ce n'est pas votre tour. Attendez votre adversaire.");
+    return;
+  }
+  
+  const CAMP_J1 = [7,8,9,10,11,12,13];
+  const CAMP_J2 = [0,1,2,3,4,5,6];
+  const monCamp = session.joueur === 1 ? CAMP_J1 : CAMP_J2;
+  if (!monCamp.includes(caseIdx)) {
+    afficherMessage("⚠️ Jouez dans votre camp !");
+    return;
+  }
+  
+  session.enCoursDEnvoi = true;
+  afficherMessage("⏳ Envoi du coup…");
+  
+  try {
+    const etat = await fetchAPI('POST', '/coup', {
+      gameId:   session.gameId,
+      token:    session.token,
+      caseIdx:  caseIdx
+    });
+    
+    // Animer les captures
+    if (etat.dernierCoup && etat.dernierCoup.casesCapturees.length > 0) {
+      etat.dernierCoup.casesCapturees.forEach(ci => {
+        const el = document.querySelector(`[data-index="${ci}"]`);
+        if (el) {
+          el.classList.add('highlight-capture');
+          setTimeout(() => el.classList.remove('highlight-capture'), 700);
+        }
+      });
+    }
+    
+    session.dernierEtat = etat;
+    rendreInterface(etat);
+    
+    if (etat.partieTerminee) afficherFinDePartie(etat);
+    
+  } catch(e) {
+    afficherMessage(`⚠️ ${e.message || 'Coup refusé par le serveur.'}`);
+  } finally {
+    session.enCoursDEnvoi = false;
+  }
+}
+
+/* ============================================================
+   RENDU DE L'INTERFACE À PARTIR DE L'ÉTAT SERVEUR
+============================================================ */
+function rendreInterface(etat) {
+  if (!etat) return;
+  const { plateau, scores, joueurActif, joueur2Present } = etat;
+  
+  // Scores
+  document.getElementById('score-j1').textContent = scores[0];
+  document.getElementById('score-j2').textContent = scores[1];
+  document.getElementById('badge-total').textContent = plateau.reduce((s,n)=>s+n,0);
+  
+  // Cartes joueurs
+  document.getElementById('carte-j1').classList.toggle('actif', joueurActif === 1);
+  document.getElementById('carte-j2').classList.toggle('actif', joueurActif === 2);
+  
+  // Message de tour
+  if (!joueur2Present) {
+    afficherMessage("⏳ En attente du joueur 2…");
+  } else if (joueurActif === session.joueur) {
+    afficherMessage("🟢 À votre tour ! Choisissez une case.");
+  } else {
+    afficherMessage(`⏳ Tour du Joueur ${joueurActif}. Attendez…`);
+  }
+  
+  // Cases
+  const CAMP_J1 = [7,8,9,10,11,12,13];
+  const CAMP_J2 = [0,1,2,3,4,5,6];
+  const monCamp = session.joueur === 1 ? CAMP_J1 : CAMP_J2;
+  const monTour = joueurActif === session.joueur && joueur2Present && !etat.partieTerminee;
+  
+  for (let i = 0; i < 14; i++) {
+    const el = document.querySelector(`[data-index="${i}"]`);
+    if (!el) continue;
+    const nb = plateau[i];
+    const clickable = monTour && monCamp.includes(i) && nb > 0;
+    
+    el.classList.toggle('vide', nb === 0);
+    el.classList.toggle('disabled', !clickable);
+    el.querySelector('.nb-graines').textContent = nb;
+    
+    const pts = el.querySelector('.graines-visuelles');
+    pts.innerHTML = '';
+    const n = Math.min(nb, 8);
+    for (let d = 0; d < n; d++) {
+      const dot = document.createElement('div');
+      dot.className = 'graine-dot';
+      pts.appendChild(dot);
+    }
+  }
+}
+
+/* ============================================================
+   FIN DE PARTIE
+============================================================ */
+function afficherFinDePartie(etat) {
+  clearInterval(session.intervalPolling);
+  
+  const { scores, finInfo } = etat;
+  let titre = '⏹ Partie terminée';
+  let resultat = '';
+  
+  if (finInfo) {
+    if (finInfo.raison === 'score') {
+      titre = `🏆 Joueur ${finInfo.gagnant} gagne !`;
+      if (finInfo.gagnant === session.joueur) titre = '🏆 Vous avez gagné !';
+      else titre = '😞 Vous avez perdu.';
+      resultat = `Le Joueur ${finInfo.gagnant} a atteint 40 graines capturées.`;
+    } else if (finInfo.raison === 'peu_graines') {
+      resultat = 'Moins de 10 graines sur le plateau. ';
+      if (scores[0] > scores[1])      resultat += 'Joueur 1 gagne !';
+      else if (scores[1] > scores[0]) resultat += 'Joueur 2 gagne !';
+      else resultat += 'Égalité !';
+    } else {
+      resultat = 'Solidarité impossible. ';
+      if (scores[0] > scores[1])      resultat += 'Joueur 1 gagne par score.';
+      else if (scores[1] > scores[0]) resultat += 'Joueur 2 gagne par score.';
+      else resultat += 'Égalité !';
+    }
+  }
+  
+  document.getElementById('modal-titre').textContent = titre;
+  document.getElementById('modal-resultat').textContent = resultat;
+  document.getElementById('modal-scores').textContent =
+    `J1 : ${scores[0]} graines — J2 : ${scores[1]} graines`;
+  document.getElementById('modal-fin').classList.add('visible');
+}
+
+/* ============================================================
+   UTILITAIRES
+============================================================ */
+function afficherMessage(msg) {
+  document.getElementById('message-tour').textContent = msg;
+}
+
+function setErreur(msg) {
+  document.getElementById('erreur-lobby').textContent = msg;
+}
+
+/**
+ * Wrapper générique pour les appels API (Fetch)
+ * Gère GET et POST, parse le JSON et lève une erreur si le
+ * serveur retourne un champ "erreur".
+ */
+async function fetchAPI(methode, endpoint, corps) {
+  const options = {
+    method: methode,
+    headers: { 'Content-Type': 'application/json' }
+  };
+  if (methode !== 'GET' && corps) {
+    options.body = JSON.stringify(corps);
+  }
+  
+  const rep = await fetch(`${API_BASE}${endpoint}`, options);
+  const data = await rep.json();
+  
+  if (!rep.ok) {
+    throw new Error(data.erreur || `Erreur HTTP ${rep.status}`);
+  }
+  return data;
+}
+
+function retourLobby() {
+  clearInterval(session.intervalPolling);
+  session = { gameId:null, token:null, joueur:null, dernierEtat:null, intervalPolling:null, enCoursDEnvoi:false };
+  document.getElementById('modal-fin').classList.remove('visible');
+  document.getElementById('ecran-jeu').style.display = 'none';
+  document.getElementById('ecran-lobby').style.display = 'block';
+  // Réinitialiser lobby
+  document.getElementById('code-partie-display').style.display = 'none';
+  document.getElementById('attente-j2').style.display = 'none';
+  document.getElementById('btn-creer').disabled = false;
+  document.getElementById('btn-rejoindre').disabled = false;
+  document.getElementById('input-code').value = '';
+  setErreur('');
+}
+
+document.getElementById('btn-quitter').addEventListener('click', () => {
+  if (confirm('Quitter la partie en cours ?')) retourLobby();
+});
+</script>
+</body>
+</html>
