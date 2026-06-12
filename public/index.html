@@ -181,7 +181,7 @@
     <div class="divider-line"></div>
   </div>
 
-  <input type="text" id="input-code" placeholder="Entrez le code de partie (ex: A3F1)" maxlength="4" />
+  <input type="text" id="input-code" placeholder="Entrez le code de partie (ex: A3F1)" maxlength="8" />
   <button class="btn btn-secondaire" id="btn-rejoindre">Rejoindre cette partie</button>
 
   <p id="erreur-lobby"></p>
@@ -289,7 +289,7 @@ document.getElementById('btn-creer').addEventListener('click', async () => {
 ============================================================ */
 document.getElementById('btn-rejoindre').addEventListener('click', async () => {
   const code = document.getElementById('input-code').value.trim().toUpperCase();
-  if (!code || code.length !== 4) { setErreur('Entrez un code de 4 caractères.'); return; }
+  if (!code || code.length < 4) { setErreur('Entrez un code COMPLET.'); return; }
   setErreur('');
   
   try {
